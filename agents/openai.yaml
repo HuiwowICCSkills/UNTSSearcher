@@ -1,0 +1,4 @@
+interface:
+  display_name: "联合国条约集（UNTS）检索"
+  short_description: "检索 UNTC MTDSG 标题目录并读取条约详情"
+  default_prompt: "使用 $UNTSSearcher 检索联合国条约标题；报告目录扫描范围、标题命中数和详情页，不要把 MTDSG 子集说成完整 UNTS。"
