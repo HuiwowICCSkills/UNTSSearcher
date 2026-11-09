@@ -2,7 +2,7 @@
 
 独立检索联合国条约集（UNTC）的 MTDSG 标题目录。只访问 `treaties.un.org`。
 
-仓库：<https://github.com/HuiwowICCSkills/UNTSSearcher>（私有）。
+仓库：<https://github.com/HuiwowICCSkills/UNTSSearcher>（公开）。
 
 ## 环境
 
