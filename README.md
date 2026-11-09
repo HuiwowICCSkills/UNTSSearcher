@@ -2,7 +2,7 @@
 
 独立检索联合国条约集（UNTC）的 MTDSG 标题目录。只访问 `treaties.un.org`。
 
-仓库：<https://github.com/GDUFSICCSkills/UNTSSearcher>（私有）。
+仓库：<https://github.com/HuiwowICCSkills/UNTSSearcher>（私有）。
 
 ## 环境
 
@@ -11,7 +11,7 @@ Python 3.10+，依赖 `requests`、`beautifulsoup4`、`pypdf`；无需浏览器�
 ## 安装与自检
 
 ```powershell
-git clone https://github.com/GDUFSICCSkills/UNTSSearcher.git "$env:USERPROFILE\.codex\skills\UNTSSearcher"
+git clone https://github.com/HuiwowICCSkills/UNTSSearcher.git "$env:USERPROFILE\.codex\skills\UNTSSearcher"
 python -m pip install -r "$env:USERPROFILE\.codex\skills\UNTSSearcher\requirements.txt"
 & "$env:USERPROFILE\.codex\skills\UNTSSearcher\run.ps1" doctor
 ```
