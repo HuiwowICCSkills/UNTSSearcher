@@ -47,6 +47,21 @@ def add_search_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--limit", type=int, default=10, help="1..50 (default 10)")
     parser.add_argument("--offset", type=int, default=0, help=">= 0 (default 0)")
     parser.add_argument("--max-pages", type=int, default=20, help="Catalogue pages to scan (1..2000)")
+    parser.add_argument(
+        "--mode",
+        choices=("catalog", "title"),
+        default="catalog",
+        help=(
+            "catalog: scan the MTDSG title catalogue; "
+            "title: use the UNTS Online Title/Keyword search form"
+        ),
+    )
+    parser.add_argument(
+        "--match",
+        choices=("phrase", "all", "any"),
+        default="phrase",
+        help="Title-search matching mode: exact phrase, all words, or any words",
+    )
 
 
 def add_fetch_args(parser: argparse.ArgumentParser) -> None:
@@ -64,6 +79,8 @@ def search(query: str, args: argparse.Namespace, http: HTTP) -> dict[str, Any]:
         raise ValueError("offset must be >= 0")
     if not 1 <= args.max_pages <= 2000:
         raise ValueError("max-pages must be 1..2000")
+    if getattr(args, "mode", "catalog") == "title":
+        return _title_search(query, args, http)
 
     root, root_meta = http.soup(ROOT_URL, headers=_headers())
     pages = list(
@@ -127,6 +144,95 @@ def search(query: str, args: argparse.Namespace, http: HTTP) -> dict[str, Any]:
             "UNTC Secretary-General depositary (MTDSG) title catalogue; "
             "a subset and alternative to the full UNTS registration search"
         ),
+        "evidence": http.evidence,
+    }
+
+
+def _title_search(query: str, args: argparse.Namespace, http: HTTP) -> dict[str, Any]:
+    """Search the UNTS Online Title/Keyword form (ASP.NET postback)."""
+    page_url = "https://treaties.un.org/Pages/UNTSOnline.aspx?id=2&clang=_en"
+    body, page_meta = http.get(page_url, headers=_headers())
+    form = BeautifulSoup(body, "html.parser")
+    data: dict[str, str] = {}
+    for field in form.select("input[type=hidden]"):
+        name = field.get("name")
+        if name:
+            data[name] = field.get("value", "")
+    data.update(
+        {
+            "ctl00$ctl00$ContentPlaceHolder1$ContentPlaceHolderInnerPage$txtTitle": query,
+            "ctl00$ctl00$ContentPlaceHolder1$ContentPlaceHolderInnerPage$Adv_srch": {
+                "phrase": "cnd3",
+                "all": "cnd2",
+                "any": "cnd1",
+            }[getattr(args, "match", "phrase")],
+            "ctl00$ctl00$ContentPlaceHolder1$ContentPlaceHolderInnerPage$btnSubmit": "Search",
+            "ctl00$ctl00$ContentPlaceHolder1$ContentPlaceHolderInnerPage$drpPageSize": "50",
+            "__EVENTTARGET": "",
+            "__EVENTARGUMENT": "",
+        }
+    )
+    response = http.session.post(
+        page_url,
+        data=data,
+        headers=_headers(),
+        timeout=(12, args.timeout),
+        allow_redirects=True,
+    )
+    if response.status_code != 200:
+        raise RetrievalError(f"UNTS title search returned HTTP {response.status_code}")
+    result_soup = BeautifulSoup(response.text, "html.parser")
+    text = result_soup.get_text(" ", strip=True)
+    count_match = re.search(r"Record Count\s*:\s*([\d,]+)", text, re.I)
+    total = int(count_match.group(1).replace(",", "")) if count_match else None
+    table = result_soup.select_one('table[id$="dgSearch"]')
+    rows: list[dict[str, Any]] = []
+    if table is not None:
+        for tr in table.select("tr"):
+            cells = tr.select("td")
+            if len(cells) < 6:
+                continue
+            link = cells[2].select_one("a[href]")
+            title = clean(cells[1].get("title") or cells[1].get_text(" ", strip=True))
+            rows.append(
+                result(
+                    title,
+                    urljoin(page_url, link["href"]) if link else page_url,
+                    "unts-title-search",
+                    "",
+                    registration_number=clean(cells[0].get_text(" ", strip=True)),
+                    participants=clean(cells[2].get_text(" ", strip=True)).replace("See Details", "").strip(),
+                    conclusion_date=clean(cells[3].get_text(" ", strip=True)),
+                    entry_into_force=clean(cells[4].get_text(" ", strip=True)),
+                    treaty_type=clean(cells[5].get_text(" ", strip=True)),
+                    access="UNTS Online Title/Keyword search result; detail page not yet fetched",
+                    content_scope="UNTS registration catalogue search result, not the treaty text",
+                )
+            )
+    selected = rows[args.offset : args.offset + args.limit]
+    if args.offset + args.limit > len(rows) and total and total > len(rows):
+        warning = "Only the first 50 title-search rows were read; refine the query or use the website for more."
+    else:
+        warning = ""
+    return {
+        "status": "ok" if selected or total == 0 else "no-results-in-queried-index",
+        "query": query,
+        "mode": "title",
+        "match": getattr(args, "match", "phrase"),
+        "total": total if total is not None else len(rows),
+        "results": selected,
+        "pagination": {
+            "offset": args.offset,
+            "limit": args.limit,
+            "next_offset": (
+                args.offset + len(selected)
+                if selected and total is not None and args.offset + len(selected) < min(total, len(rows))
+                else None
+            ),
+            "page_size": 50,
+        },
+        "warnings": [warning] if warning else [],
+        "scope": "UNTS Online Title/Keyword search (all UNTS registrations, not only the MTDSG catalogue)",
         "evidence": http.evidence,
     }
 

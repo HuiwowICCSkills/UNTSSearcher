@@ -18,6 +18,10 @@ description: 独立检索联合国条约集（UNTS/UNTC）秘书长保存的 MTD
 
 ```powershell
 & '<skill-dir>/run.ps1' search "Charter" --max-pages 5 --limit 10 --out './unts.json'
+
+# UNTS Online Title/Keyword Search（全部 UNTS 登记，不只 MTDSG 目录）
+& '<skill-dir>/run.ps1' search "genocide" --mode title --match phrase --limit 10
+
 & '<skill-dir>/run.ps1' fetch 'https://treaties.un.org/Pages/ViewDetails.aspx?...' --out './treaty.json' --text-out './treaty.txt'
 & '<skill-dir>/run.ps1' doctor
 ```
@@ -27,6 +31,7 @@ description: 独立检索联合国条约集（UNTS/UNTC）秘书长保存的 MTD
 ## 结果边界
 
 - 这是 **MTDSG 标题目录**，不是完整 UNTS 登记库；它只覆盖秘书长保存的多边条约目录。双边条约、未列入 MTDSG 的登记和完整 UNTS Advanced Search 仍属人工补检。
+- `--mode title` 改用 UNTS Online 的 **Title/Keyword Search**（`UNTSOnline.aspx?id=2`），覆盖全部 UNTS 登记；`--match phrase|all|any` 对应站点的“Match this phrase / Match all these words / Match any of these words”。它仍是标题检索，不是全文检索；Volume Search、Participant Search、Full-text Search 和 AdvanceSearch 的文档类型/属性组合检索仍见 [references/unts-search.md](references/unts-search.md)，目前按人工或浏览器入口处理。
 - `total` 是本次扫描目录页面中匹配的条约标题数，不是全库命中数；`status=partial` 表示某些目录页抓取失败或未访问完。
 - `search` 只按标题匹配；要按当事国、登记号、卷页或条约正文检索，使用 UNTS Advanced Search 或人工补检。
 - `fetch` 的 PDF 页号是 PDF 位置，不是印刷页码；扫描件可能 `needs_ocr=true`。
